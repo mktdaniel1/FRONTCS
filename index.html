@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sereia CS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ============ LOGIN ============ -->
+  <section id="login-view" class="login-view">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-icon"><i class="ti ti-headset"></i></div>
+        <div>
+          <h1>Sereia CS</h1>
+          <p id="login-subtitle">Quem está entrando agora?</p>
+        </div>
+      </div>
+
+      <!-- Etapa 1: escolha do funcionário -->
+      <div id="login-step-funcionario">
+        <div id="funcionarios-grid" class="funcionarios-grid">
+          <!-- preenchido por JS -->
+          <div class="grid-loading">Carregando time...</div>
+        </div>
+        <p class="login-help" id="funcionarios-help"></p>
+      </div>
+
+      <!-- Etapa 2: token (após escolher) -->
+      <div id="login-step-token" class="hidden">
+        <div class="selected-funcionario">
+          <div class="avatar" id="selected-avatar">--</div>
+          <div>
+            <div class="selected-nome" id="selected-nome">--</div>
+            <div class="selected-setor" id="selected-setor">--</div>
+          </div>
+          <button class="ghost-btn" onclick="voltarEscolha()" title="Voltar">
+            <i class="ti ti-arrow-back-up"></i>
+          </button>
+        </div>
+        <label class="login-label">Token de acesso da equipe</label>
+        <input type="password" id="token-input" placeholder="••••••••••" autocomplete="off" />
+        <button id="login-btn" class="primary-btn">Entrar</button>
+        <p id="login-error" class="login-error"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <main id="dashboard-view" class="dashboard hidden">
+
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon"><i class="ti ti-headset"></i></div>
+        <div>
+          <h1>Sereia CS</h1>
+          <p>Atendimento via WhatsApp · <span id="header-clientes">180</span> clientes</p>
+        </div>
+      </div>
+      <div class="header-user" id="header-user">
+        <div class="header-avatar" id="header-avatar">--</div>
+        <div class="header-user-info">
+          <div class="header-user-nome" id="header-user-nome">--</div>
+          <div class="header-user-setor" id="header-user-setor">--</div>
+        </div>
+      </div>
+      <div class="header-status">
+        <span class="status-dot" id="ws-dot"></span>
+        <span id="ws-label">conectando</span>
+        <button class="ghost-btn" id="logout-btn" title="Sair"><i class="ti ti-logout"></i></button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="volume">Volume</button>
+      <button class="tab" data-tab="backlog">
+        Backlog ao vivo
+        <span class="tab-badge hidden" id="tab-badge-backlog">0</span>
+      </button>
+      <button class="tab" data-tab="chamados">
+        Chamados
+        <span class="tab-badge hidden" id="tab-badge-chamados">0</span>
+      </button>
+      <button class="tab" data-tab="contatos">
+        Contatos
+        <span class="tab-badge hidden" id="tab-badge-contatos">0</span>
+      </button>
+      <button class="tab" data-tab="sla">SLA</button>
+      <button class="tab" data-tab="reincidencia">Reincidência</button>
+    </nav>
+
+    <!-- ============ ABA VOLUME ============ -->
+    <section class="tab-panel" id="panel-volume">
+      <div class="cards-row">
+        <div class="metric-card">
+          <p class="metric-label">Hoje</p>
+          <p class="metric-value" id="metric-hoje">—</p>
+          <p class="metric-delta" id="metric-hoje-delta">&nbsp;</p>
+        </div>
+        <div class="metric-card">
+          <p class="metric-label">Esta semana</p>
+          <p class="metric-value" id="metric-semana">—</p>
+          <p class="metric-delta" id="metric-semana-delta">&nbsp;</p>
+        </div>
+        <div class="metric-card">
+          <p class="metric-label">Este mês</p>
+          <p class="metric-value" id="metric-mes">—</p>
+          <p class="metric-delta" id="metric-mes-delta">&nbsp;</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Chamados por dia · últimos 30 dias</h2>
+          <div class="legend">
+            <span><span class="legend-line legend-line-orange"></span>abertos</span>
+            <span><span class="legend-line legend-line-purple"></span>resolvidos</span>
+          </div>
+        </div>
+        <svg id="timeseries" viewBox="0 0 700 180"></svg>
+      </div>
+
+      <div class="card">
+        <h2>Concentração por dia × hora</h2>
+        <div id="heatmap" class="heatmap"></div>
+        <div class="heatmap-legend">
+          <span>menos</span>
+          <span class="hm-cell hm-0"></span>
+          <span class="hm-cell hm-1"></span>
+          <span class="hm-cell hm-2"></span>
+          <span class="hm-cell hm-3"></span>
+          <span class="hm-cell hm-4"></span>
+          <span>mais</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Clientes que mais abriram este mês</h2>
+          <span class="muted">top 10</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th class="num">Mês</th>
+              <th class="num">% resolvido</th>
+              <th class="num">Tendência 30d</th>
+            </tr>
+          </thead>
+          <tbody id="top-clientes-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ ABA BACKLOG ============ -->
+    <section class="tab-panel hidden" id="panel-backlog">
+
+      <!-- Card de alertas ativos (visível só quando há alertas) -->
+      <div id="alertas-card" class="alertas-card hidden">
+        <div class="alertas-head">
+          <i class="ti ti-alarm" aria-hidden="true"></i>
+          <span><span id="alertas-count">0</span> alertas precisam de ação agora</span>
+          <button class="alertas-som-btn" id="som-toggle" title="Som de alerta">
+            <i class="ti ti-volume" id="som-icon" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div id="alertas-list"></div>
+      </div>
+
+      <div class="backlog-kpis">
+        <div class="backlog-kpi">
+          <span class="dot dot-green"></span>
+          <div><div class="kpi-num" id="kpi-ok">0</div><div class="kpi-sub">menos de 30 min</div></div>
+        </div>
+        <div class="backlog-kpi">
+          <span class="dot dot-amber"></span>
+          <div><div class="kpi-num" id="kpi-atencao">0</div><div class="kpi-sub">30 min a 2 h</div></div>
+        </div>
+        <div class="backlog-kpi">
+          <span class="dot dot-red"></span>
+          <div><div class="kpi-num" id="kpi-critico">0</div><div class="kpi-sub">mais de 2 h</div></div>
+        </div>
+        <div class="backlog-kpi">
+          <i class="ti ti-bell"></i>
+          <div><div class="kpi-num" id="kpi-lembretes">0</div><div class="kpi-sub">lembretes hoje</div></div>
+        </div>
+      </div>
+
+      <div class="card no-pad">
+        <div class="backlog-head">
+          <div></div>
+          <div>Cliente</div>
+          <div>Aberto há</div>
+          <div>Última mensagem</div>
+          <div>Lembrete</div>
+          <div class="right"></div>
+        </div>
+        <div id="backlog-list"></div>
+        <div class="backlog-empty hidden" id="backlog-empty">
+          <i class="ti ti-mood-smile"></i>
+          <p>Fila zerada. Bom trabalho.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ABA CHAMADOS (split fixo estilo WhatsApp Web) ============ -->
+    <section class="tab-panel hidden" id="panel-chamados">
+      <div class="chamados-split">
+        <aside class="chamados-list" id="chamados-list-aside">
+          <div class="chamados-list-head">
+            <span>Chamados ativos</span>
+            <span class="muted" id="chamados-list-count">0</span>
+          </div>
+          <div id="chamados-list-items"></div>
+        </aside>
+        <main class="chamados-chat" id="chamados-chat-main">
+          <!-- Componente Chat é injetado aqui -->
+          <div class="chat-empty" id="chat-empty-state">
+            <i class="ti ti-messages"></i>
+            <p>Selecione um chamado à esquerda</p>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ============ ABA CONTATOS ============ -->
+    <section class="tab-panel hidden" id="panel-contatos">
+
+      <div class="contatos-kpis">
+        <div class="contatos-kpi">
+          <div class="contatos-kpi-icon kpi-icon-orange"><i class="ti ti-help"></i></div>
+          <div><div class="kpi-num" id="contatos-nao-classificados">—</div><div class="kpi-sub">não classificados</div></div>
+        </div>
+        <div class="contatos-kpi">
+          <div class="contatos-kpi-icon kpi-icon-purple"><i class="ti ti-id-badge"></i></div>
+          <div><div class="kpi-num" id="contatos-funcionarios">—</div><div class="kpi-sub">funcionários</div></div>
+        </div>
+        <div class="contatos-kpi">
+          <div class="contatos-kpi-icon kpi-icon-green"><i class="ti ti-users"></i></div>
+          <div><div class="kpi-num" id="contatos-clientes">—</div><div class="kpi-sub">contatos cliente</div></div>
+        </div>
+        <div class="contatos-kpi">
+          <div class="contatos-kpi-icon kpi-icon-gray"><i class="ti ti-eye-off"></i></div>
+          <div><div class="kpi-num" id="contatos-ignorados">—</div><div class="kpi-sub">ignorados</div></div>
+        </div>
+      </div>
+
+      <div class="contatos-filters">
+        <button class="filter active" data-filter="nao_classificado">Não classificados</button>
+        <button class="filter" data-filter="funcionario">Funcionários</button>
+        <button class="filter" data-filter="cliente">Contatos cliente</button>
+        <button class="filter" data-filter="ignorado">Ignorados</button>
+      </div>
+
+      <div class="card no-pad">
+        <div id="contatos-list"></div>
+        <div class="contatos-empty hidden" id="contatos-empty">
+          <i class="ti ti-search"></i>
+          <p>Nenhum contato nessa categoria ainda.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ ABA SLA (placeholder) ============ -->
+    <section class="tab-panel hidden" id="panel-sla">
+      <div class="placeholder">
+        <i class="ti ti-stopwatch"></i>
+        <h3>SLA detalhado</h3>
+        <p>Em breve: tempo médio até 1ª resposta, tempo até resolução, p50/p90/p99, comparativo por funcionário.</p>
+      </div>
+    </section>
+
+    <!-- ============ ABA REINCIDÊNCIA (placeholder) ============ -->
+    <section class="tab-panel hidden" id="panel-reincidencia">
+      <div class="placeholder">
+        <i class="ti ti-refresh-alert"></i>
+        <h3>Reincidência</h3>
+        <p>Em breve: clientes que voltaram com o mesmo problema em até 24h, ranking de contas pré-churn.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Drawer de chat (aparece sobreposto ao backlog) -->
+  <div id="chat-drawer" class="chat-drawer hidden">
+    <div class="chat-drawer-backdrop" onclick="fecharDrawer()"></div>
+    <div class="chat-drawer-panel" id="chat-drawer-panel"></div>
+  </div>
+
+  <!-- Container de toasts (notificações de lembrete vencido) -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.0/dist/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
