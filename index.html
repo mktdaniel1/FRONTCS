@@ -83,9 +83,11 @@
         Backlog ao vivo
         <span class="tab-badge hidden" id="tab-badge-backlog">0</span>
       </button>
-    </button>
-        <button class="tab" data-tab="relatorio">Relatório</button>
-        <button class="tab" data-tab="contatos">
+      <button class="tab" data-tab="chamados">
+        Chamados
+        <span class="tab-badge hidden" id="tab-badge-chamados">0</span>
+      </button>
+      <button class="tab" data-tab="relatorio">Relatório</button>
       <button class="tab" data-tab="contatos">
         Contatos
         <span class="tab-badge hidden" id="tab-badge-contatos">0</span>
@@ -227,6 +229,11 @@
           </div>
         </main>
       </div>
+    </section>
+
+    <!-- ============ ABA RELATÓRIO ============ -->
+    <section class="tab-panel hidden" id="panel-relatorio">
+      <div id="relatorio-container" style="padding:1rem;"></div>
     </section>
 
     <!-- ============ ABA CONTATOS ============ -->
