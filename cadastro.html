@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pulso · Cadastro do time</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <style>
+    :root{
+      --pulso:#FF4D6D; --sinal:#5B6CFF; --tinta:#141726;
+      --neutro:#F4F5F9; --muted:#6B6F82; --linha:rgba(20,23,38,0.10);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:Inter,system-ui,sans-serif; background:var(--neutro); color:var(--tinta);
+      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .card{
+      width:100%; max-width:440px; background:#fff; border-radius:20px;
+      border:1px solid var(--linha); padding:32px; box-shadow:0 8px 40px rgba(20,23,38,0.06);
+    }
+    .brand{display:flex; align-items:center; gap:12px; margin-bottom:4px}
+    .brand h1{font-size:24px; font-weight:700; letter-spacing:-0.5px}
+    .sub{color:var(--muted); font-size:14px; margin-bottom:24px}
+    .ecg{display:block; width:100%; height:28px; margin:18px 0 22px; opacity:0.9}
+    label{display:block; font-size:13px; font-weight:500; margin:14px 0 6px}
+    input,select{
+      width:100%; padding:12px 14px; font-size:15px; font-family:inherit;
+      border:1px solid var(--linha); border-radius:10px; background:#fff; color:var(--tinta);
+    }
+    input:focus,select:focus{outline:none; border-color:var(--sinal); box-shadow:0 0 0 3px rgba(91,108,255,0.12)}
+    .hint{font-size:12px; color:var(--muted); margin-top:5px}
+    button{
+      width:100%; margin-top:24px; padding:13px; font-size:15px; font-weight:600; font-family:inherit;
+      color:#fff; background:var(--pulso); border:none; border-radius:10px; cursor:pointer;
+    }
+    button:hover{filter:brightness(0.95)}
+    button:disabled{opacity:0.5; cursor:default}
+    .msg{margin-top:16px; font-size:14px; padding:12px 14px; border-radius:10px; display:none}
+    .msg.ok{display:block; background:rgba(59,109,17,0.08); color:#2E5A0E}
+    .msg.err{display:block; background:rgba(179,64,42,0.08); color:#A3331F}
+    .token-row{margin-bottom:4px}
+    .footer{margin-top:22px; font-size:12px; color:var(--muted); text-align:center}
+    .added{margin-top:18px; border-top:1px solid var(--linha); padding-top:14px}
+    .added h3{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:8px}
+    .added ul{list-style:none; display:flex; flex-direction:column; gap:6px}
+    .added li{font-size:14px; display:flex; align-items:center; gap:8px}
+    .added li .dot{width:7px; height:7px; border-radius:50%; background:var(--pulso); flex:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" width="36" height="36" aria-hidden="true">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="#5B6CFF" stroke-width="2" opacity="0.25"/>
+        <circle cx="24" cy="24" r="14" fill="none" stroke="#5B6CFF" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="24" cy="24" r="6.5" fill="#FF4D6D"/>
+      </svg>
+      <h1>Pulso</h1>
+    </div>
+    <p class="sub">Cadastro do time · entre no batimento</p>
+
+    <svg class="ecg" viewBox="0 0 440 28" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 14 H120 L135 14 L142 5 L150 23 L158 14 L172 14 L180 9 L188 14 H440"
+            fill="none" stroke="#5B6CFF" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="150" cy="23" r="2.5" fill="#FF4D6D"/>
+    </svg>
+
+    <div class="token-row">
+      <label for="token">Token da equipe</label>
+      <input type="password" id="token" placeholder="••••••••••" autocomplete="off" />
+      <p class="hint">O mesmo token de acesso do painel. Peça ao responsável se não tiver.</p>
+    </div>
+
+    <label for="nome">Seu nome</label>
+    <input type="text" id="nome" placeholder="Ex: Cristina Souza" />
+
+    <label for="setor">Setor</label>
+    <select id="setor">
+      <option value="cs">CS</option>
+      <option value="suporte">Suporte</option>
+      <option value="marketing">Marketing</option>
+      <option value="financeiro">Financeiro</option>
+      <option value="outro">Outro</option>
+    </select>
+
+    <label for="whatsapp">Seu WhatsApp</label>
+    <input type="tel" id="whatsapp" placeholder="Ex: 11 94857-5898" inputmode="numeric" />
+    <p class="hint">Use o número que você vai conectar no 2chat pra responder os clientes.</p>
+
+    <button id="btn" onclick="cadastrar()">Cadastrar no time</button>
+
+    <div id="msg" class="msg"></div>
+
+    <div id="added" class="added" style="display:none">
+      <h3>Cadastrados nesta sessão</h3>
+      <ul id="added-list"></ul>
+    </div>
+
+    <p class="footer">Pulso · painel de atendimento Growper</p>
+  </div>
+
+  <script>
+    const API_BASE = 'https://projetos-cs-growper-production.up.railway.app';
+    const cadastrados = [];
+
+    function setMsg(text, ok) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+
+    async function cadastrar() {
+      const token = document.getElementById('token').value.trim();
+      const nome = document.getElementById('nome').value.trim();
+      const setor = document.getElementById('setor').value;
+      const whatsapp = document.getElementById('whatsapp').value.trim();
+
+      if (!token) { setMsg('Informe o token da equipe.', false); return; }
+      if (!nome) { setMsg('Informe seu nome.', false); return; }
+      if (!whatsapp || whatsapp.replace(/\D/g, '').length < 10) {
+        setMsg('Informe um número de WhatsApp válido com DDD.', false); return;
+      }
+
+      const btn = document.getElementById('btn');
+      btn.disabled = true; btn.textContent = 'Cadastrando...';
+
+      try {
+        const r = await fetch(`${API_BASE}/api/funcionarios/cadastro`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CS-Token': token },
+          body: JSON.stringify({ nome, setor, whatsapp })
+        });
+        const data = await r.json().catch(() => ({}));
+
+        if (r.status === 401) { setMsg('Token da equipe inválido.', false); return; }
+        if (!r.ok) { setMsg(data.error || 'Não foi possível cadastrar. Tente de novo.', false); return; }
+
+        setMsg(`${nome} cadastrado no time. Já pode acessar o painel.`, true);
+        cadastrados.push({ nome, setor });
+        renderAdded();
+        document.getElementById('nome').value = '';
+        document.getElementById('whatsapp').value = '';
+        document.getElementById('nome').focus();
+      } catch (err) {
+        setMsg('Servidor indisponível no momento. Tente de novo em instantes.', false);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Cadastrar no time';
+      }
+    }
+
+    function renderAdded() {
+      if (!cadastrados.length) return;
+      document.getElementById('added').style.display = 'block';
+      document.getElementById('added-list').innerHTML = cadastrados
+        .map(c => `<li><span class="dot"></span>${c.nome} · ${c.setor}</li>`)
+        .join('');
+    }
+
+    document.getElementById('whatsapp').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') cadastrar();
+    });
+  </script>
+</body>
+</html>
