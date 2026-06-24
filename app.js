@@ -1090,8 +1090,8 @@ function renderChat(chamado) {
           ${prioDropdown}
           ${btnAbrirGrupoHtml}
           <button class="chat-header-btn" onclick="abrirLembreteNoChat(${chamado.id})"><i class="ti ti-bell-plus"></i> Lembrete</button>
-          <button class="chat-header-btn success" onclick="resolverChamadoNoChat(${chamado.id})"><i class="ti ti-check"></i> Resolver</button>
-        </div>
+<button class="chat-header-btn success" onclick="fecharChamado(${chamado.id}, 'resolvido')"><i class="ti ti-check"></i> Resolvido</button>
+<button class="chat-header-btn" onclick="fecharChamado(${chamado.id}, 'nao_resolvido')" style="color:#b3402a;"><i class="ti ti-x"></i> Não resolvido</button>        </div>
       </div>
       ${chamado.contato_abertura_nome ? `
       <div class="chat-context">
