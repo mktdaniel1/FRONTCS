@@ -78,13 +78,13 @@
     <label for="nome">Seu nome</label>
     <input type="text" id="nome" placeholder="Ex: Cristina Souza" />
 
-    <label for="setor">Setor</label>
-    <select id="setor">
-      <option value="cs">CS</option>
-      <option value="suporte">Suporte</option>
-      <option value="marketing">Marketing</option>
-      <option value="financeiro">Financeiro</option>
-      <option value="outro">Outro</option>
+    <label for="cargo">Cargo</label>
+    <select id="cargo">
+      <option value="Sócio">Sócio</option>
+      <option value="Coordenador de CS">Coordenador de CS</option>
+      <option value="Coordenador de performance">Coordenador de performance</option>
+      <option value="Analista">Analista</option>
+      <option value="CS">CS</option>
     </select>
 
     <label for="whatsapp">Seu WhatsApp</label>
@@ -107,6 +107,15 @@
     const API_BASE = 'https://projetos-cs-growper-production.up.railway.app';
     const cadastrados = [];
 
+    // Cargo (o que a pessoa escolhe) -> setor (campo travado do banco, define a cor do avatar)
+    const CARGO_SETOR = {
+      'Sócio': 'outro',
+      'Coordenador de CS': 'cs',
+      'Coordenador de performance': 'marketing',
+      'Analista': 'cs',
+      'CS': 'cs'
+    };
+
     function setMsg(text, ok) {
       const el = document.getElementById('msg');
       el.textContent = text;
@@ -116,7 +125,8 @@
     async function cadastrar() {
       const token = document.getElementById('token').value.trim();
       const nome = document.getElementById('nome').value.trim();
-      const setor = document.getElementById('setor').value;
+      const cargo = document.getElementById('cargo').value;
+      const setor = CARGO_SETOR[cargo] || 'outro';
       const whatsapp = document.getElementById('whatsapp').value.trim();
 
       if (!token) { setMsg('Informe o token da equipe.', false); return; }
@@ -132,7 +142,7 @@
         const r = await fetch(`${API_BASE}/api/funcionarios/cadastro`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CS-Token': token },
-          body: JSON.stringify({ nome, setor, whatsapp })
+          body: JSON.stringify({ nome, setor, whatsapp, cargo })
         });
         const data = await r.json().catch(() => ({}));
 
@@ -140,7 +150,7 @@
         if (!r.ok) { setMsg(data.error || 'Não foi possível cadastrar. Tente de novo.', false); return; }
 
         setMsg(`${nome} cadastrado no time. Já pode acessar o painel.`, true);
-        cadastrados.push({ nome, setor });
+        cadastrados.push({ nome, cargo });
         renderAdded();
         document.getElementById('nome').value = '';
         document.getElementById('whatsapp').value = '';
@@ -156,7 +166,7 @@
       if (!cadastrados.length) return;
       document.getElementById('added').style.display = 'block';
       document.getElementById('added-list').innerHTML = cadastrados
-        .map(c => `<li><span class="dot"></span>${c.nome} · ${c.setor}</li>`)
+        .map(c => `<li><span class="dot"></span>${c.nome} · ${c.cargo}</li>`)
         .join('');
     }
 
