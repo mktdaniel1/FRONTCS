@@ -49,11 +49,12 @@ async function carregarFuncionariosLogin() {
       const iniciais = (f.nome || '?').split(/\s+/).slice(0,2).map(s=>s[0]).join('').toUpperCase();
       const cor = CORES_SETOR[f.setor] || CORES_SETOR.outro;
       const cls = !f.conectado ? 'funcionario-card no-channel' : 'funcionario-card';
+      const rotulo = f.cargo || f.setor || '—';
       return `
-        <div class="${cls}" onclick="escolherFuncionario(${f.id}, '${escapeAttr(f.nome)}', '${escapeAttr(f.setor || 'outro')}', '${escapeAttr(iniciais)}', ${f.conectado})">
+        <div class="${cls}" onclick="escolherFuncionario(${f.id}, '${escapeAttr(f.nome)}', '${escapeAttr(f.setor || 'outro')}', '${escapeAttr(f.cargo || '')}', '${escapeAttr(iniciais)}', ${f.conectado})">
           <div class="avatar" style="background: ${cor};">${iniciais}</div>
           <div class="nome">${escapeHtml(f.nome || '—')}</div>
-          <div class="setor">${escapeHtml(f.setor || '—')}</div>
+          <div class="setor">${escapeHtml(rotulo)}</div>
         </div>`;
     }).join('');
     const semCanal = lista.filter(f => !f.conectado).length;
@@ -65,14 +66,14 @@ async function carregarFuncionariosLogin() {
   }
 }
 
-window.escolherFuncionario = function (id, nome, setor, iniciais, conectado) {
-  funcionarioSelecionado = { id, nome, setor, iniciais, conectado, cor: CORES_SETOR[setor] || CORES_SETOR.outro };
+window.escolherFuncionario = function (id, nome, setor, cargo, iniciais, conectado) {
+  funcionarioSelecionado = { id, nome, setor, cargo, iniciais, conectado, cor: CORES_SETOR[setor] || CORES_SETOR.outro };
   document.getElementById('login-step-funcionario').classList.add('hidden');
   document.getElementById('login-step-token').classList.remove('hidden');
   document.getElementById('selected-avatar').textContent = iniciais;
   document.getElementById('selected-avatar').style.background = funcionarioSelecionado.cor;
   document.getElementById('selected-nome').textContent = nome;
-  document.getElementById('selected-setor').textContent = setor;
+  document.getElementById('selected-setor').textContent = cargo || setor;
   document.getElementById('login-subtitle').textContent = 'Token de acesso';
   document.getElementById('token-input').focus();
 };
@@ -161,7 +162,7 @@ function iniciarDashboard() {
     headerAvatar.textContent = f.iniciais || (f.nome || '?').split(/\s+/).slice(0,2).map(s=>s[0]).join('').toUpperCase();
     headerAvatar.style.background = f.cor || '#5F5E5A';
     document.getElementById('header-user-nome').textContent = f.nome || '';
-    document.getElementById('header-user-setor').textContent = f.setor || '';
+    document.getElementById('header-user-setor').textContent = f.cargo || f.setor || '';
   }
 
   configurarTabs();
@@ -201,6 +202,7 @@ function configurarTabs() {
       if (tab === 'backlog') carregarBacklog();
       if (tab === 'contatos') carregarContatos();
       if (tab === 'chamados') carregarChamadosAtivos();
+      if (tab === 'relatorio') carregarStatusReport();
     });
   });
 }
@@ -447,7 +449,7 @@ function renderContatoRow(c) {
 
   if (c.tipo === 'funcionario') {
     avatarClass = 'avatar-purple';
-    sugestaoLabel = c.setor + (c.cargo ? ' · ' + c.cargo : '');
+    sugestaoLabel = (c.cargo || c.setor || 'funcionário');
     badgeClass = 'badge-purple';
   } else if (c.tipo === 'cliente') {
     avatarClass = 'avatar-green';
@@ -544,13 +546,6 @@ window.iniciarClassificacao = function (contatoId, tipo) {
       </div>`;
   }
   row.insertAdjacentHTML('beforeend', formHtml);
-
-  // Pré-seleciona grupo principal se for cliente
-  if (tipo === 'cliente') {
-    const sel = document.getElementById(`form-cliente-${contatoId}`);
-    // Tenta achar pelo grupo_principal_id (do backend)
-    // Pra simplificar, deixamos o usuário escolher
-  }
 
   // Foca no primeiro input
   const firstInput = row.querySelector('.contato-form input');
@@ -712,7 +707,7 @@ function renderAlertas(lembretes) {
 window.encerrarChamadoDoAlerta = async function (chamadoId, lembreteId) {
   if (!confirm('Encerrar este chamado como resolvido?')) return;
   try {
-    await api(`/api/chamados/${chamadoId}/fechar`, { method: 'POST', body: JSON.stringify({}) });
+    await api(`/api/chamados/${chamadoId}/fechar`, { method: 'POST', body: JSON.stringify({ resultado: 'resolvido' }) });
     await api(`/api/lembretes/${lembreteId}/resolver`, {
       method: 'POST', body: JSON.stringify({ resolucao: 'atendido' })
     });
@@ -966,7 +961,7 @@ function notificarBrowser(titulo, corpo) {
   if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
   if (document.hasFocus()) return; // só notifica se aba está em segundo plano
-  try { new Notification(titulo, { body: corpo, icon: '/favicon.ico', tag: 'sereia-cs' }); }
+  try { new Notification(titulo, { body: corpo, icon: '/favicon.svg', tag: 'pulso-cs' }); }
   catch (err) { /* ignora */ }
 }
 
@@ -1074,13 +1069,34 @@ function renderChat(chamado) {
     ? `Responder como ${funcionario.nome}`
     : 'Você não tem número 2chat conectado';
 
+  // Tier do cliente — badge abaixo do nome + seletor
+  const TIERS = [
+    { k: 'bronze',    label: 'Bronze',    emoji: '🥉', cor: '#A05A2C' },
+    { k: 'prata',     label: 'Prata',     emoji: '🥈', cor: '#8A8D91' },
+    { k: 'ouro',      label: 'Ouro',      emoji: '🥇', cor: '#C9A227' },
+    { k: 'platina',   label: 'Platina',   emoji: '💠', cor: '#3FA7A1' },
+    { k: 'diamante',  label: 'Diamante',  emoji: '💎', cor: '#4F8DF5' },
+    { k: 'superstar', label: 'Superstar', emoji: '⭐', cor: '#9B59B6' }
+  ];
+  const tierAtual = TIERS.find(t => t.k === chamado.tier) || null;
+  const tierBadge = tierAtual
+    ? `<span class="tier-badge" onclick="toggleTierDropdown(${chamado.cliente_id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:${tierAtual.cor};background:${tierAtual.cor}1a;padding:1px 8px;border-radius:10px;margin-top:2px;">${tierAtual.emoji} ${tierAtual.label}</span>`
+    : `<span class="tier-badge" onclick="toggleTierDropdown(${chamado.cliente_id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#9a9a9a;border:1px dashed rgba(0,0,0,0.18);padding:1px 8px;border-radius:10px;margin-top:2px;">+ definir tier</span>`;
+  const tierDropdown = `
+    <div class="tier-dropdown hidden" id="tier-dropdown-${chamado.cliente_id}" style="position:absolute;z-index:50;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.12);padding:4px;margin-top:4px;min-width:150px;">
+      ${TIERS.map(t => `<button onclick="definirTier(${chamado.cliente_id}, '${t.k}')" style="display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:7px 10px;font-size:13px;cursor:pointer;border-radius:6px;text-align:left;color:${t.cor};font-weight:600;">${t.emoji} ${t.label}</button>`).join('')}
+      ${tierAtual ? `<button onclick="definirTier(${chamado.cliente_id}, null)" style="display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:7px 10px;font-size:13px;cursor:pointer;border-radius:6px;text-align:left;color:#9a9a9a;border-top:1px solid rgba(0,0,0,0.06);">✕ Remover tier</button>` : ''}
+    </div>`;
+
   chatState.hostElement.innerHTML = `
     <div class="chat-component">
       <div class="chat-header">
         ${chatState.hostElement.id === 'chat-drawer-panel' ? '<button class="icon-btn" onclick="fecharDrawer()"><i class="ti ti-arrow-left"></i></button>' : ''}
         <div class="chat-header-avatar">${escapeHtml(iniciais)}</div>
-        <div class="chat-header-info">
+        <div class="chat-header-info" style="position:relative;">
           <div class="chat-header-cliente">${escapeHtml(cliente)}</div>
+          ${tierBadge}
+          ${tierDropdown}
           <div class="chat-header-status">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${statusCor}; display: inline-block;"></span>
             ${statusTexto} · aberto há ${fmtMinutos(((Date.now() - new Date(chamado.aberto_em)) / 60000) | 0)}${responsavel}
@@ -1090,8 +1106,9 @@ function renderChat(chamado) {
           ${prioDropdown}
           ${btnAbrirGrupoHtml}
           <button class="chat-header-btn" onclick="abrirLembreteNoChat(${chamado.id})"><i class="ti ti-bell-plus"></i> Lembrete</button>
-<button class="chat-header-btn success" onclick="fecharChamado(${chamado.id}, 'resolvido')"><i class="ti ti-check"></i> Resolvido</button>
-<button class="chat-header-btn" onclick="fecharChamado(${chamado.id}, 'nao_resolvido')" style="color:#b3402a;"><i class="ti ti-x"></i> Não resolvido</button>        </div>
+          <button class="chat-header-btn success" onclick="fecharChamado(${chamado.id}, 'resolvido')"><i class="ti ti-check"></i> Resolvido</button>
+          <button class="chat-header-btn" onclick="fecharChamado(${chamado.id}, 'nao_resolvido')" style="color:#b3402a;"><i class="ti ti-x"></i> Não resolvido</button>
+        </div>
       </div>
       ${chamado.contato_abertura_nome ? `
       <div class="chat-context">
@@ -1137,7 +1154,7 @@ function renderMensagensHtml(mensagens) {
   let ultimaData = null;
 
   mensagens.forEach((m) => {
-    const dataMsg = new Date(m.enviado_em).toDateString();
+    const dataMsg = parseData(m.enviado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     if (dataMsg !== ultimaData) {
       html += `<div class="data-divider">${formatDataDivider(m.enviado_em)}</div>`;
       ultimaData = dataMsg;
@@ -1437,16 +1454,32 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.prio-wrapper')) {
     document.querySelectorAll('.prio-dropdown').forEach(d => d.classList.add('hidden'));
   }
+  if (!e.target.closest('.tier-badge') && !e.target.closest('.tier-dropdown')) {
+    document.querySelectorAll('.tier-dropdown').forEach(d => d.classList.add('hidden'));
+  }
 });
 
-window.resolverChamadoNoChat = async function (chamadoId) {
-  if (!confirm('Marcar este chamado como resolvido?')) return;
+window.toggleTierDropdown = function (clienteId) {
+  document.querySelectorAll('.tier-dropdown').forEach(d => {
+    if (d.id !== `tier-dropdown-${clienteId}`) d.classList.add('hidden');
+  });
+  document.getElementById(`tier-dropdown-${clienteId}`)?.classList.toggle('hidden');
+};
+
+window.definirTier = async function (clienteId, tier) {
   try {
-    await api(`/api/chamados/${chamadoId}/fechar`, { method: 'POST', body: JSON.stringify({ por_nome: getNomeLogado() }) });
-    await abrirChat(chatState.clienteId, chamadoId);
-    carregarChamadosAtivos();
-    carregarBacklog();
-  } catch (err) { alert('Erro: ' + err.message); }
+    await api(`/api/clientes/${clienteId}/tier`, {
+      method: 'PUT',
+      body: JSON.stringify({ tier })
+    });
+    document.getElementById(`tier-dropdown-${clienteId}`)?.classList.add('hidden');
+    // re-render do chat aberto pra atualizar o badge
+    if (chatState.clienteId === clienteId && chatState.chamadoId) {
+      abrirChat(clienteId, chatState.chamadoId);
+    }
+  } catch (err) {
+    alert('Erro ao definir tier: ' + err.message);
+  }
 };
 
 window.abrirLembreteNoChat = function (chamadoId) {
@@ -1526,8 +1559,8 @@ function formatDia(iso) {
 }
 
 function formatRelativo(iso) {
-  if (!iso) return 'há tempo';
-  const d = new Date(iso);
+  const d = parseData(iso);
+  if (!d) return 'há tempo';
   const min = Math.round((Date.now() - d) / 60000);
   if (min < 60) return `há ${min} min`;
   const h = Math.round(min / 60);
@@ -1536,20 +1569,37 @@ function formatRelativo(iso) {
   return `há ${dias}d`;
 }
 
+// Normaliza timestamp do 2chat: se vier sem fuso (sem Z e sem +hh),
+// trata como UTC (a origem do 2chat é UTC). Retorna um Date correto.
+function parseData(iso) {
+  if (!iso) return null;
+  let s = String(iso);
+  // já tem fuso explícito? (Z ou +hh:mm / -hh:mm no fim)
+  const temFuso = /([zZ]|[+-]\d{2}:?\d{2})$/.test(s);
+  if (!temFuso) {
+    // troca espaço por T (caso venha "2026-06-24 14:21:58") e marca como UTC
+    s = s.replace(' ', 'T') + 'Z';
+  }
+  return new Date(s);
+}
+
 function formatHoraMin(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const d = parseData(iso);
+  if (!d) return '';
+  return d.toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'
+  });
 }
 
 function formatDataDivider(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
+  const d = parseData(iso);
+  if (!d) return '';
+  const fmt = (x) => x.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   const hoje = new Date();
   const ontem = new Date(); ontem.setDate(hoje.getDate() - 1);
-  if (d.toDateString() === hoje.toDateString()) return 'hoje';
-  if (d.toDateString() === ontem.toDateString()) return 'ontem';
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  if (fmt(d) === fmt(hoje)) return 'hoje';
+  if (fmt(d) === fmt(ontem)) return 'ontem';
+  return fmt(d);
 }
 
 function escapeAttr(s) {
@@ -1583,6 +1633,128 @@ function truncate(s, n) {
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// ============================================================
+// RELATÓRIO DE STATUS + DESFECHO (Resolvido / Não resolvido)
+// ============================================================
+window.fecharChamado = async function (chamadoId, resultado) {
+  const label = resultado === 'nao_resolvido' ? 'NÃO resolvido' : 'resolvido com sucesso';
+  if (!confirm(`Fechar este chamado como ${label}?`)) return;
+  try {
+    await api(`/api/chamados/${chamadoId}/fechar`, {
+      method: 'POST',
+      body: JSON.stringify({ resultado })
+    });
+    await abrirChat(chatState.clienteId, chamadoId);
+    carregarChamadosAtivos();
+    carregarBacklog();
+  } catch (err) {
+    alert('Erro ao fechar: ' + err.message);
+  }
+};
+
+let relatorioPeriodo = 'mes';
+
+window.setRelatorioPeriodo = function (p) {
+  relatorioPeriodo = p;
+  carregarStatusReport();
+};
+
+async function carregarStatusReport() {
+  const cont = document.getElementById('relatorio-container');
+  if (!cont) return;
+  cont.innerHTML = '<div style="padding:2rem;text-align:center;color:#888780;">carregando…</div>';
+  try {
+    const [total, porConsultor, porSquad] = await Promise.all([
+      api(`/api/metrics/status-report?period=${relatorioPeriodo}`),
+      api(`/api/metrics/status-report?period=${relatorioPeriodo}&group_by=consultor`),
+      api(`/api/metrics/status-report?period=${relatorioPeriodo}&group_by=squad`)
+    ]);
+    renderStatusReport(total, porConsultor, porSquad);
+  } catch (err) {
+    cont.innerHTML = `<div style="padding:2rem;text-align:center;color:#b3402a;">Erro ao carregar relatório: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderStatusReport(total, porConsultor, porSquad) {
+  const cont = document.getElementById('relatorio-container');
+  if (!cont) return;
+
+  const PERIODOS = [
+    { k: 'hoje', label: 'Hoje' },
+    { k: 'semana', label: 'Esta semana' },
+    { k: 'mes', label: 'Este mês' }
+  ];
+  const seletor = PERIODOS.map(p =>
+    `<button onclick="setRelatorioPeriodo('${p.k}')"
+       style="padding:6px 14px;border:1px solid ${relatorioPeriodo === p.k ? '#4A2C4F' : 'rgba(0,0,0,0.12)'};
+              background:${relatorioPeriodo === p.k ? '#4A2C4F' : '#fff'};color:${relatorioPeriodo === p.k ? '#fff' : '#5F5E5A'};
+              border-radius:8px;font-size:13px;cursor:pointer;margin-right:6px;">${p.label}</button>`
+  ).join('');
+
+  const card = (titulo, valor, cor) => `
+    <div style="flex:1;min-width:120px;background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:12px;padding:16px;">
+      <div style="font-size:12px;color:#888780;margin-bottom:6px;">${titulo}</div>
+      <div style="font-size:30px;font-weight:700;color:${cor};line-height:1;">${valor}</div>
+    </div>`;
+
+  const taxa = total.taxa_sucesso_pct;
+
+  const cards = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+      ${card('Em tratativa', total.em_tratativa, '#D85C3F')}
+      ${card('Resolvidos', total.resolvido, '#3B6D11')}
+      ${card('Não resolvidos', total.nao_resolvido, '#b3402a')}
+      <div style="flex:1;min-width:120px;background:#4A2C4F;border-radius:12px;padding:16px;color:#fff;">
+        <div style="font-size:12px;opacity:0.8;margin-bottom:6px;">Taxa de sucesso</div>
+        <div style="font-size:30px;font-weight:700;line-height:1;">${taxa === null ? '—' : taxa + '%'}</div>
+        <div style="font-size:11px;opacity:0.7;margin-top:4px;">resolvidos ÷ fechados</div>
+      </div>
+    </div>`;
+
+  const tabela = (titulo, linhas, colGrupo) => {
+    if (!linhas || !linhas.length) {
+      return `<div style="margin-bottom:24px;"><h3 style="font-size:14px;color:#4A2C4F;margin:0 0 8px;">${titulo}</h3>
+              <div style="color:#888780;font-size:13px;padding:8px 0;">Sem dados no período.</div></div>`;
+    }
+    const rows = linhas.map(r => {
+      const t = r.taxa_sucesso_pct;
+      const tCor = t === null ? '#888780' : t >= 70 ? '#3B6D11' : t >= 50 ? '#993C1D' : '#b3402a';
+      return `<tr style="border-top:1px solid rgba(0,0,0,0.06);">
+        <td style="padding:8px 10px;">${escapeHtml(r.grupo)}</td>
+        <td style="padding:8px 10px;text-align:center;color:#D85C3F;font-weight:600;">${r.em_tratativa}</td>
+        <td style="padding:8px 10px;text-align:center;color:#3B6D11;font-weight:600;">${r.resolvido}</td>
+        <td style="padding:8px 10px;text-align:center;color:#b3402a;font-weight:600;">${r.nao_resolvido}</td>
+        <td style="padding:8px 10px;text-align:center;color:${tCor};font-weight:700;">${t === null ? '—' : t + '%'}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px;color:#4A2C4F;margin:0 0 8px;">${titulo}</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:10px;overflow:hidden;">
+          <thead>
+            <tr style="background:rgba(74,44,79,0.05);color:#5F5E5A;font-size:11px;text-transform:uppercase;">
+              <th style="padding:8px 10px;text-align:left;">${colGrupo}</th>
+              <th style="padding:8px 10px;">Em tratativa</th>
+              <th style="padding:8px 10px;">Resolvidos</th>
+              <th style="padding:8px 10px;">Não resolv.</th>
+              <th style="padding:8px 10px;">Taxa</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  };
+
+  cont.innerHTML = `
+    <div style="margin-bottom:18px;">${seletor}</div>
+    ${cards}
+    ${tabela('Por consultor', porConsultor, 'Consultor')}
+    ${tabela('Por squad', porSquad, 'Squad')}
+    <div style="font-size:11px;color:#888780;margin-top:8px;">
+      "Em tratativa" reflete o estado atual (chamados abertos agora). "Resolvidos" e "não resolvidos" contam os fechados dentro do período selecionado.
+    </div>`;
 }
 
 // ============================================================
