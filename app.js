@@ -1088,15 +1088,41 @@ function renderChat(chamado) {
       ${tierAtual ? `<button onclick="definirTier(${chamado.cliente_id}, null)" style="display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:7px 10px;font-size:13px;cursor:pointer;border-radius:6px;text-align:left;color:#9a9a9a;border-top:1px solid rgba(0,0,0,0.06);">✕ Remover tier</button>` : ''}
     </div>`;
 
+  // CS e Coordenador responsáveis pelo cliente (listas fixas)
+  const CS_LISTA = ['Bruna', 'Carol', 'Cat', 'Rodrigo'];
+  const COORD_LISTA = ['Macedo', 'Matheus', 'Carol Ferreira'];
+  const csAtual = chamado.cs || null;
+  const coordAtual = chamado.coordenador || null;
+
+  const squadPill = (label, valor, tipo, cor) => valor
+    ? `<span class="squad-badge" onclick="toggleSquadDropdown('${tipo}', ${chamado.cliente_id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:${cor};background:${cor}1a;padding:1px 8px;border-radius:10px;margin-top:2px;margin-left:4px;"><i class="ti ti-user" style="font-size:11px;"></i> ${escapeHtml(valor)}</span>`
+    : `<span class="squad-badge" onclick="toggleSquadDropdown('${tipo}', ${chamado.cliente_id})" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#9a9a9a;border:1px dashed rgba(0,0,0,0.18);padding:1px 8px;border-radius:10px;margin-top:2px;margin-left:4px;">+ ${label}</span>`;
+
+  const squadDropdown = (tipo, lista, atual, cor) => `
+    <div class="squad-dropdown hidden" id="squad-${tipo}-dropdown-${chamado.cliente_id}" style="position:absolute;z-index:50;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.12);padding:4px;margin-top:4px;min-width:160px;">
+      <div style="font-size:10px;color:#9a9a9a;text-transform:uppercase;padding:4px 10px 2px;">${tipo === 'cs' ? 'CS responsável' : 'Coordenador'}</div>
+      ${lista.map(n => `<button onclick="definirSquad('${tipo}', ${chamado.cliente_id}, '${escapeAttr(n)}')" style="display:flex;align-items:center;gap:8px;width:100%;border:none;background:${atual === n ? cor + '1a' : 'none'};padding:7px 10px;font-size:13px;cursor:pointer;border-radius:6px;text-align:left;color:${cor};font-weight:600;">${escapeHtml(n)}${atual === n ? ' ✓' : ''}</button>`).join('')}
+      ${atual ? `<button onclick="definirSquad('${tipo}', ${chamado.cliente_id}, null)" style="display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;padding:7px 10px;font-size:13px;cursor:pointer;border-radius:6px;text-align:left;color:#9a9a9a;border-top:1px solid rgba(0,0,0,0.06);">✕ Remover</button>` : ''}
+    </div>`;
+
+  const csBadge = squadPill('CS', csAtual, 'cs', '#0C447C');
+  const coordBadge = squadPill('coordenador', coordAtual, 'coord', '#993C1D');
+  const csDropdown = squadDropdown('cs', CS_LISTA, csAtual, '#0C447C');
+  const coordDropdown = squadDropdown('coord', COORD_LISTA, coordAtual, '#993C1D');
+
   chatState.hostElement.innerHTML = `
     <div class="chat-component">
       <div class="chat-header">
         ${chatState.hostElement.id === 'chat-drawer-panel' ? '<button class="icon-btn" onclick="fecharDrawer()"><i class="ti ti-arrow-left"></i></button>' : ''}
         <div class="chat-header-avatar">${escapeHtml(iniciais)}</div>
-        <div class="chat-header-info" style="position:relative;">
-          <div class="chat-header-cliente">${escapeHtml(cliente)}</div>
+        <div class="chat-header-info" style="position:relative;flex:1;min-width:0;">
+          <div class="chat-header-cliente" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${escapeHtml(cliente)}</div>
           ${tierBadge}
+          ${csBadge}
+          ${coordBadge}
           ${tierDropdown}
+          ${csDropdown}
+          ${coordDropdown}
           <div class="chat-header-status">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${statusCor}; display: inline-block;"></span>
             ${statusTexto} · aberto há ${fmtMinutos(((Date.now() - new Date(chamado.aberto_em)) / 60000) | 0)}${responsavel}
@@ -1457,6 +1483,9 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.tier-badge') && !e.target.closest('.tier-dropdown')) {
     document.querySelectorAll('.tier-dropdown').forEach(d => d.classList.add('hidden'));
   }
+  if (!e.target.closest('.squad-badge') && !e.target.closest('.squad-dropdown')) {
+    document.querySelectorAll('.squad-dropdown').forEach(d => d.classList.add('hidden'));
+  }
 });
 
 window.toggleTierDropdown = function (clienteId) {
@@ -1479,6 +1508,30 @@ window.definirTier = async function (clienteId, tier) {
     }
   } catch (err) {
     alert('Erro ao definir tier: ' + err.message);
+  }
+};
+
+window.toggleSquadDropdown = function (tipo, clienteId) {
+  // Fecha todos os outros dropdowns (tier e squad) antes de abrir
+  document.querySelectorAll('.tier-dropdown, .squad-dropdown').forEach(d => {
+    if (d.id !== `squad-${tipo}-dropdown-${clienteId}`) d.classList.add('hidden');
+  });
+  document.getElementById(`squad-${tipo}-dropdown-${clienteId}`)?.classList.toggle('hidden');
+};
+
+window.definirSquad = async function (tipo, clienteId, valor) {
+  try {
+    const campo = tipo === 'cs' ? 'cs' : 'coordenador';
+    await api(`/api/clientes/${clienteId}/squad`, {
+      method: 'PUT',
+      body: JSON.stringify({ [campo]: valor })
+    });
+    document.getElementById(`squad-${tipo}-dropdown-${clienteId}`)?.classList.add('hidden');
+    if (chatState.clienteId === clienteId && chatState.chamadoId) {
+      abrirChat(clienteId, chatState.chamadoId);
+    }
+  } catch (err) {
+    alert('Erro ao definir ' + (tipo === 'cs' ? 'CS' : 'coordenador') + ': ' + err.message);
   }
 };
 
